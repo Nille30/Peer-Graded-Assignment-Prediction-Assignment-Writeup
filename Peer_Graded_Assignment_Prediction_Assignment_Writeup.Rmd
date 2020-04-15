@@ -1,0 +1,89 @@
+---
+title: "https://github.com/Nille30/Peer-Graded-Assignment-Prediction-Assignment-Writeup"
+author: "Nille30"
+date: "4/14/2020"
+output: html_document
+---
+
+# Background
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement - a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, your goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. More information is available from the website here: http://web.archive.org/web/20161224072740/http:/groupware.les.inf.puc-rio.br/har (see the section on the Weight Lifting Exercise Dataset).
+
+# Objective
+The goal of your project is to predict the manner in which they did the exercise. This is the “classe” variable in the train set. This report describes how data was cleaned, how “pml-training.csv” was split into train set and test set, the models investigated.
+
+# Data Loading, preparation and processing
+```{r}
+library(readr)
+setwd("/Users/nilsgimpl/Desktop/Coding/R_data/datasciencecoursera/Data_Science_Statistical_Interfence/Peer-Graded-Assignment-Prediction-Assignment-Writeup")
+urlTrain <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+urlTest <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+download.file(urlTrain,destfile="training_data.csv")
+download.file(urlTest,destfile="testing_data.csv")
+train <- read.csv("training_data.csv",na.strings = c("NA", "#DIV/0!", ""))
+test <- read.csv("testing_data.csv",na.strings = c("NA", "#DIV/0!", ""))
+```
+
+## Removing irrelevant variables and columns with NA values
+```{r}
+train <- train[, which(colSums(is.na(train)) == 0)] 
+test <- test[, which(colSums(is.na(test)) == 0)]
+train <- train[,-c(1:7)]
+test <- test[,-c(1:7)]
+```
+
+## Partioning the training set into training and crossvalidation datasets
+```{r}
+library(caret)
+set.seed(123)
+train = data.frame(train)
+fitData <- createDataPartition(train$classe, p=0.70, list=F)
+train <- train[fitData, ]
+val <- train[-fitData, ]
+```
+
+# Building a model and cross validation
+## Regression Tree Model (rpart)
+```{r}
+model1 <- train(classe ~ ., method="rpart", data=train)
+val1 <- predict(model1, val)
+confusionMatrix(val$classe, val1)
+```
+
+## Random Forest Model (rf)
+```{r}
+model2 <- train(classe ~ ., method="rf", data=train, prox=TRUE,ntree=50)
+val2 <- predict(model2, val)
+confusionMatrix(val$classe, val2)
+```
+
+## Boosted Trees Model (gbm)
+```{r}
+model3 <- train(classe ~ ., method="gbm", data=train,trControl=trainControl(method = "repeatedcv", number = 5, repeats = 1),verbose=FALSE)
+val3 <- predict(model3, val)
+confusionMatrix(val$classe, val3)
+```
+
+The comparison shows that the random forest model has the highest accuarcy of the three model. Therefore, it will be used for the prediction of the test samples.
+
+## Linear Discriminant Analysis Model
+```{r}
+model4 <- train(classe ~ ., data = train, method = "lda")
+val4 <- predict(model4, newdata = val)
+confusionMatrix(val$classe, val4)
+```
+
+
+# Prediction
+Random forest model is used for the prediction
+```{r}
+pred <- predict(model2, newdata=test)
+pred
+```
+
+# Appendix
+## Plot of the decision tree (rpart)
+```{r}
+library(rattle)
+fancyRpartPlot(model1$finalModel)
+```
+
